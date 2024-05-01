@@ -72,12 +72,12 @@ class TestPaymentModule(PaymentModule):
             WHERE module = '{'pmtestpayment'}' AND pt.status = {PaymentStatus.INPAY.value}
         """
         # testovy
-        query = f"""
-            SELECT pt.id, pt.externalid FROM payment AS pt
-            JOIN paymethod AS pmd ON pt.paymethod = pmd.id
-            WHERE module = '{'pmtestpayment'}' AND pt.status = {4}
-            ORDER BY pt.id DESC LIMIT 3;
-        """
+        # query = f"""
+        #     SELECT pt.id, pt.externalid FROM payment AS pt
+        #     JOIN paymethod AS pmd ON pt.paymethod = pmd.id
+        #     WHERE module = '{'pmtestpayment'}' AND pt.status = {4}
+        #     ORDER BY pt.id DESC LIMIT 3;
+        # """
         db_in_pay_payments: t.List[t.Dict[str, t.Union[str, int]]] \
             = db.db_query(query)
 
