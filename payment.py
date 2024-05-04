@@ -1,5 +1,5 @@
 """
-Файл с базовой функциональностью для реализации платежного модуля.
+Базовая функциональность для реализации платежного модуля.
 """
 
 from abc import ABC, abstractmethod
@@ -16,7 +16,6 @@ import billmgr.exception
 from billmgr.misc import MgrctlXml
 
 
-MODULE: str = "payment"
 MODULE_NAME: str = "customtinkoffpayment"
 
 os.chdir("/usr/local/mgr5")
@@ -127,7 +126,7 @@ class PaymentCgi(ABC):
                 self.elid = val
 
         # получаем url к панели
-        self.mgrurl =  "https://" + os.environ['HTTP_HOST'] + "/billmgr"
+        self.mgrurl = "https://" + os.environ['HTTP_HOST'] + "/billmgr"
         self.pending_page = f'{self.mgrurl}?func=payment.pending'
         self.fail_page = f'{self.mgrurl}?func=payment.fail'
         self.success_page = f'{self.mgrurl}?func=payment.success'
