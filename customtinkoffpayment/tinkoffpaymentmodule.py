@@ -1,20 +1,15 @@
-#!/usr/bin/python3
-
-"""
-Основной обработчик платёжной системы.
-"""
-
 from xml.etree import ElementTree as ET
 import typing as t
 
 import requests
 
 from billmgr import db
+from billmgr import logger as logging
+from billmgr.exception import XmlException
 from billmgr.misc import MgrctlXml
-from payment import generate_token, PaymentStatus, PaymentModule
-import billmgr.exception
-import billmgr.logger as logging
-import payment
+from customtinkoffpayment.payment import Payment
+from customtinkoffpayment.paymentmodule import PaymentModule
+from customtinkoffpayment.tinkoffkassa import TinkoffKassa
 
 
 MODULE = 'payment'
@@ -23,22 +18,26 @@ logging.init_logging('pmtestpayment')
 logger = logging.get_logger('pmtestpayment')
 
 
-class TestPaymentModule(PaymentModule):
+class TinkoffPaymentModule(PaymentModule):
 
     def __init__(self):
         super().__init__()
 
-        self.features[payment.FEATURE_CHECKPAY] = True
-        self.features[payment.FEATURE_REDIRECT] = True
-        self.features[payment.FEATURE_NOT_PROFILE] = True
-        self.features[payment.FEATURE_PMVALIDATE] = True
+        self.features[self.Feature.CHECK_PAY] = True
+        self.features[self.Feature.REDIRECT] = True
+        self.features[self.Feature.NO_NEED_PROFILE] = True
+        self.features[self.Feature.PM_VALIDATE] = True
 
-        self.params[payment.PAYMENT_PARAM_PAYMENT_SCRIPT] = "/mancgi/testpayment"
+        self.params[self.Param.PAYMENT_SCRIPT] = "/mancgi/customtinkoffpayment"
 
     # в тестовом примере валидация проходит успешно, если
     # Идентификатор терминала = rick, пароль терминала = morty
+    #
+    # принимается xml с веденными на форме значениями
+    # если есть некорректные значения, то бросаем исключение billmgr.exception.XmlException
+    # если все значение валидны, то ничего не возвращаем, исключений не бросаем
     # TODO
-    def PM_Validate(self, xml: ET.ElementTree):
+    def pm_validate(self, xml: ET.ElementTree):
         logger.info("run pmvalidate")
 
         # мы всегда можем вывести xml в лог, чтобы изучить, что приходит :)
@@ -49,14 +48,12 @@ class TestPaymentModule(PaymentModule):
         terminalkey = terminalkey_node.text if terminalkey_node is not None else ''
         terminalpsw = terminalpsw_node.text if terminalpsw_node is not None else ''
 
-        if terminalkey != 'rick' or terminalpsw != 'morty':
-            raise billmgr.exception.XmlException('wrong_terminal_info')
+        if terminalkey not in ['rick', "TinkoffBankTest"] or terminalpsw not in ['morty', "TinkoffBankTest"]:
+            raise XmlException('wrong_terminal_info')
 
     # в тестовом примере получаем необходимые платежи
     # и переводим их все в статус 'оплачен'
-    def CheckPay(self):
-        # проверить оплаченные платежи
-        # реализация --command checkpay
+    def check_pay(self):
         # здесь делаем запрос в БД, получаем список платежей в статусе "оплачивается"
         # идем в платежку и проверяем прошли ли платежи
         # если платеж оплачен, выставляем соответствующий статус c помощью функции set_paid
@@ -69,7 +66,7 @@ class TestPaymentModule(PaymentModule):
             SELECT pt.id, pt.externalid FROM payment AS pt
             JOIN paymethod AS pmd
             ON pt.paymethod = pmd.id
-            WHERE module = '{'pmtestpayment'}' AND pt.status = {PaymentStatus.INPAY.value}
+            WHERE module = '{'pmtestpayment'}' AND pt.status = {Payment.Status.IN_PAY.value}
         """
         # testovy
         # query = f"""
@@ -89,7 +86,6 @@ class TestPaymentModule(PaymentModule):
             terminalpsw = payment_info_xml.find("./payment/paymethod/terminalpsw").text
 
             request_body: dict[t.Union[str, int]] = {
-                # "TerminalKey": "TinkoffBankTest",
                 "TerminalKey": terminalkey,
                 "PaymentId": pt.get("externalid"),
             }
@@ -121,6 +117,3 @@ class TestPaymentModule(PaymentModule):
                                      externalid=pt.get("externalid"))
 
             logger.info(f'Status for payment({pt.get("id")}) = {kassa_response.get("Status")}.')
-
-
-TestPaymentModule().Process()

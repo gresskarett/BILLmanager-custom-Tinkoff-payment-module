@@ -1,0 +1,13 @@
+HTTP/1.1 303 See Other
+Host: securepay.tinkoff.ru
+Location: {{ redirect_url }}
+User-Agent: curl/7.68.0
+Accept: */*
+Cache-Control: no-cache
+Content-Type: text/html; charset=utf-8
+
+<html>
+    <body>
+        <div>REDIRECT</div>
+    </body>
+</html>
