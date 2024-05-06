@@ -9,6 +9,8 @@ import sys
 from customtinkoffpayment.tinkoffpayment import TinkoffPayment
 
 
+# TODO: get elid, передать аргументом в класс. Сейчас класс сам почему-то получает свой elid
 payment: TinkoffPayment = TinkoffPayment()
-payment_request: str = payment.get_redirect_request()
-sys.stdout.write(payment_request)
+redirect_url: str = payment.make()
+
+sys.stdout.write(payment.get_redirect_request(redirect_url))
