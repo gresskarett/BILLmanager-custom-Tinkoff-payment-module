@@ -4,7 +4,11 @@
 CGI скрипт для перехода в платёжную систему для оплаты.
 """
 
-from customtinkoffpayment.tinkoffpaymentcgi import TinkoffPaymentCgi
+import sys
+
+from customtinkoffpayment.tinkoffpayment import TinkoffPayment
 
 
-TinkoffPaymentCgi().process()
+payment: TinkoffPayment = TinkoffPayment()
+payment_request: str = payment.get_redirect_request()
+sys.stdout.write(payment_request)
