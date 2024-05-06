@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
+from http.cookies import SimpleCookie
 import os
 import typing as t
 
@@ -22,45 +23,33 @@ class Payment(ABC):
         CANCELED = 9
 
     def __init__(self):
-        self.elid = ""          # ID платежа
-        self.auth = ""          # токен авторизации
-        self.mgrurl = ""        # url биллинга
-        self.pending_page = ""  # url страницы биллинга с информацией об ожидании зачисления платежа
-        self.fail_page = ""     # url страницы биллинга с информацией о неуспешной оплате
-        self.success_page = ""  # url страницы биллинга с информацией о успешной оплате
 
-        self.payment_params = {}    # параметры платежа
-        self.paymethod_params = {}  # параметры метода оплаты
-        self.user_params = {}       # параметры пользователя
+        self.elid = self._get_elid()
+        "ID платежа."
+        self.cookies = self._parse_cookies(os.environ['HTTP_COOKIE'])
+        self.auth = self.cookies.get("billmgrses5")
+        "Токен авторизации."
 
-        self.lang = None           # язык используемый у клиента
-
-        # пока поддерживаем только http метод GET
-        if os.environ['REQUEST_METHOD'] != 'GET':
-            raise NotImplementedError
-
-        # по-умолчанию используется https
-        if os.environ['HTTPS'] != 'on':
-            raise NotImplementedError
-
-        # получаем id платежа, он же elid
-        input_str = os.environ['QUERY_STRING']
-        for key, val in [param.split('=') for param in input_str.split('&')]:
-            if key == "elid":
-                self.elid = val
-
-        # получаем url к панели
         self.mgrurl = "https://" + os.environ['HTTP_HOST'] + "/billmgr"
+        "URL биллинга."
         self.pending_page = f'{self.mgrurl}?func=payment.pending'
+        "URL страницы биллинга с информацией об ожидании зачисления платежа."
         self.fail_page = f'{self.mgrurl}?func=payment.fail'
+        "URL страницы биллинга с информацией о неуспешной оплате."
         self.success_page = f'{self.mgrurl}?func=payment.success'
+        "URL страницы биллинга с информацией об успешной оплате."
 
-        # получить cookie
-        cookies = self._parse_cookies(os.environ['HTTP_COOKIE'])
-        _, self.lang = cookies["billmgrlang5"].split(':')
+        self.payment_params = {}
+        "Параметры платежа."
+        self.paymethod_params = {}
+        "Параметры метода оплаты."
+        self.user_params = {}
+        "Параметры пользователя."
 
-        # получить токен авторизации
-        self.auth = cookies["billmgrses5"]
+        self.lang = self.cookies["billmgrlang5"].split(':')[1]
+        "Язык, используемый у клиента."
+
+        self.validate()
 
         # получить параметры платежа и метода оплаты
         # см. https://docs.ispsystem.ru/bc/razrabotchiku/sozdanie-modulej/sozdanie-modulej-plateyonyh-sistem#id-Созданиемодулейплатежныхсистем-CGIскриптымодуля
@@ -95,8 +84,14 @@ class Payment(ABC):
             self.user_params["account_id"] = user_query["account"]
             self.user_params["account_registration_date"] = user_query["registration_date"]
 
+    def _get_elid(self):  # TODO: return type int, сейчас str | None
+        input_str = os.environ['QUERY_STRING']
+        for key, val in [param.split('=') for param in input_str.split('&')]:
+            if key == "elid":
+                return val
+
+    @staticmethod
     def _parse_cookies(rawdata) -> t.Dict[str, str]:
-        from http.cookies import SimpleCookie
         cookie = SimpleCookie()
         cookie.load(rawdata)
         return {k: v.value for k, v in cookie.items()}
@@ -105,6 +100,15 @@ class Payment(ABC):
     def get_redirect_request(self) -> str:
         "Основной метод работы CGI, возвращающий HTTP запрос для перехода в платёжную систему для оплаты."
         pass
+
+    def validate(self) -> None:
+        # пока поддерживаем только http метод GET
+        if os.environ['REQUEST_METHOD'] != 'GET':
+            raise NotImplementedError
+
+        # по-умолчанию используется https
+        if os.environ['HTTPS'] != 'on':
+            raise NotImplementedError
 
     # перевести платеж в статус "оплачивается"
     def set_in_pay(payment_id: str, info: str, externalid: str):
