@@ -35,7 +35,7 @@ class TinkoffKassa:
                      language: str = "", notification_url: str = "",
                      success_url: str = "", fail_url: str = ""
                      ) -> t.Dict[t.Union[str, int]]:
-        "Инициализация платежа. Метод инициирует платежную сессию."
+        "Метод инициирует платежную сессию."
 
         url: str = "https://securepay.tinkoff.ru/v2/Init"
 
@@ -49,6 +49,25 @@ class TinkoffKassa:
         request_body.update({"Token": self.generate_token(request_body)})
 
         response: t.Dict[t.Union[str, int]] = requests\
+            .post(url=url, json=request_body)\
+            .json()
+
+        return response
+
+    def get_state(self, payment_id: str) -> ...:
+        "Метод возвращает статус платежа."
+
+        url: str = "https://securepay.tinkoff.ru/v2/GetState"
+
+        request_body: dict[t.Union[str, int]] = {
+            "TerminalKey": self.terminalkey,
+            # "PaymentId": pt.get("externalid"),
+            "PaymentId": payment_id
+        }
+        request_body.update({"Token": self.generate_token(
+            request_body=request_body, password=self.terminalpsw)})
+
+        response: dict[t.Union[str, int]] = requests\
             .post(url=url, json=request_body)\
             .json()
 
