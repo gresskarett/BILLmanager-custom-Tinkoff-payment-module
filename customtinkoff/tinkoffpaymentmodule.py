@@ -91,21 +91,23 @@ class TinkoffPaymentModule(PaymentModule):
             if not kassa_response.get("Success"):
                 raise Exception("Ошибка получения статуса платежа")
 
+            response_info: str = "{0} {1}".format(
+                kassa_response.get("Message"),
+                kassa_response.get("Details")
+            ).strip()
+
             # TODO: убрать тестовые данные
-            # if kassa_response.get("TerminalKey") == "TinkoffBankTest":
-            #     payment.set_fraud(payment_id=pt.get("id"),
-            #                       info="Платёж выполнен через тестовые данные.",
-            #                       externalid=pt.get("externalid"))
+            if kassa_response.get("TerminalKey") == "TinkoffBankTest":
+                MgrctlXml('payment.setfraud', elid=pt.get("id"), info=response_info, externalid=pt.get("externalid"))
+                # payment.set_fraud(payment_id=pt.get("id"),
+                #                   info="Платёж выполнен через тестовые данные.",
+                #                   externalid=pt.get("externalid"))
             if kassa_response.get("Status") in ["NEW", "CONFIRMED"]:
                 MgrctlXml('payment.setpaid', elid=pt.get("id"), info="", externalid=pt.get("externalid"))
                 # Payment.set_paid(payment_id=pt.get("id"),
                 #                  info="",
                 #                  externalid=pt.get("externalid"))
             elif kassa_response.get("Status") == "CANCELED":
-                response_info: str = "{0} {1}".format(
-                        kassa_response.get("Message"),
-                        kassa_response.get("Details")
-                    ).strip()
                 MgrctlXml('payment.setcanceled', elid=pt.get("id"), info=response_info, externalid=pt.get("externalid"))
                 # Payment.set_canceled(payment_id=pt.get("id"),
                 #                      info="",

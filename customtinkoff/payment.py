@@ -4,14 +4,9 @@ from http.cookies import SimpleCookie
 import typing as t
 
 from billmgr import db
-from billmgr import logger as logging
 from billmgr.exception import XmlException
 from billmgr.misc import MgrctlXml
 from customtinkoff import logger
-
-
-# logging.init_logging(MODULE_NAME)
-# logger = logging.get_logger(MODULE_NAME)
 
 
 class Payment(ABC):

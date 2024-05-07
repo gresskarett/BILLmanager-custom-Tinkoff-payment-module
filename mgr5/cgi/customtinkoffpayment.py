@@ -11,13 +11,9 @@ sys.path.append("/root/practice/paymethod")
 
 import typing as t
 
-from billmgr import logger as logging
-from customtinkoff import MODULE_NAME
+from customtinkoff import logger
 from customtinkoff.tinkoffpayment import TinkoffPayment
 
-
-logging.init_logging(MODULE_NAME)
-logger = logging.get_logger(MODULE_NAME)
 
 logger.info("run cgi/customtinkoffpayment")
 

@@ -63,8 +63,7 @@ class TinkoffKassa:
             "TerminalKey": self.terminalkey,
             "PaymentId": payment_id
         }
-        # request_body.update({"Token": self.generate_token(request_body)})
-        request_body["Token"] = self.generate_token(request_body)
+        request_body.update({"Token": self.generate_token(request_body)})
 
         response: t.Dict[str, t.Union[str, int]] = requests\
             .post(url=url, json=request_body)\
