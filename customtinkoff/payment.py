@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from http.cookies import SimpleCookie
-import os
 import typing as t
 
 from billmgr import db
+from billmgr import logger as logging
 from billmgr.exception import XmlException
 from billmgr.misc import MgrctlXml
+from customtinkoff import logger
+
+
+# logging.init_logging(MODULE_NAME)
+# logger = logging.get_logger(MODULE_NAME)
 
 
 class Payment(ABC):
@@ -22,15 +27,19 @@ class Payment(ABC):
         FRAUD = 7
         CANCELED = 9
 
-    def __init__(self):
+    def __init__(self, elid: str, cookies: str = "", http_host: str = "",
+                 request_method: str = "", https: str = "") -> None:
+        logger.info("run Payment.__init__")
 
-        self.elid = self._get_elid()
+        self.elid = elid
         "ID платежа."
-        self.cookies = self._parse_cookies(os.environ['HTTP_COOKIE'])
+        self.cookies: t.Dict[str, str] = self._parse_cookies(cookies)
+        self.request_method: str = request_method
+        self.https: str = https
         self.auth = self.cookies.get("billmgrses5")
         "Токен авторизации."
 
-        self.mgrurl = "https://" + os.environ['HTTP_HOST'] + "/billmgr"
+        self.mgrurl = "https://" + http_host + "/billmgr"
         "URL биллинга."
         self.pending_page = f'{self.mgrurl}?func=payment.pending'
         "URL страницы биллинга с информацией об ожидании зачисления платежа."
@@ -49,10 +58,12 @@ class Payment(ABC):
         self.lang = self.cookies["billmgrlang5"].split(':')[1]
         "Язык, используемый у клиента."
 
-        self.validate()
+        if request_method and https:
+            self.validate()
 
         # получить параметры платежа и метода оплаты
         # см. https://docs.ispsystem.ru/bc/razrabotchiku/sozdanie-modulej/sozdanie-modulej-plateyonyh-sistem#id-Созданиемодулейплатежныхсистем-CGIскриптымодуля
+
         payment_info_xml = MgrctlXml("payment.info", elid=self.elid, lang=self.lang)
         for elem in payment_info_xml.findall("./payment/"):
             self.payment_params[elem.tag] = elem.text
@@ -65,7 +76,6 @@ class Payment(ABC):
         user_node = MgrctlXml("whoami", auth=self.auth).find('./user')
         if user_node is None:
             raise XmlException("invalid_whoami_result")
-
         # получаем из бд данные о пользователях
         user_query = db.get_first_record(
             f"""SELECT u.*, IFNULL(c.iso2, 'EN') AS country, a.registration_date
@@ -84,12 +94,6 @@ class Payment(ABC):
             self.user_params["account_id"] = user_query["account"]
             self.user_params["account_registration_date"] = user_query["registration_date"]
 
-    def _get_elid(self):  # TODO: return type int, сейчас str | None
-        input_str = os.environ['QUERY_STRING']
-        for key, val in [param.split('=') for param in input_str.split('&')]:
-            if key == "elid":
-                return val
-
     @staticmethod
     def _parse_cookies(rawdata) -> t.Dict[str, str]:
         cookie = SimpleCookie()
@@ -97,21 +101,22 @@ class Payment(ABC):
         return {k: v.value for k, v in cookie.items()}
 
     @abstractmethod
-    def get_redirect_request(self) -> str:
+    def get_redirect_request(self, url: str) -> str:
         "Основной метод работы CGI, возвращающий HTTP запрос для перехода в платёжную систему для оплаты."
         pass
 
     def validate(self) -> None:
         # пока поддерживаем только http метод GET
-        if os.environ['REQUEST_METHOD'] != 'GET':
+        if self.request_method != 'GET':
             raise NotImplementedError
 
         # по-умолчанию используется https
-        if os.environ['HTTPS'] != 'on':
+        if self.https != 'on':
             raise NotImplementedError
 
     # перевести платеж в статус "оплачивается"
-    def set_in_pay(payment_id: str, info: str, externalid: str):
+
+    def set_in_pay(self, payment_id: str, info: str, externalid: str):
         '''
         payment_id - id платежа в BILLmanager
         info       - доп. информация о платеже от платежной системы
@@ -120,13 +125,13 @@ class Payment(ABC):
         MgrctlXml('payment.setinpay', elid=payment_id, info=info, externalid=externalid)
 
     # перевести платеж в статус "мошеннический"
-    def set_fraud(payment_id: str, info: str, externalid: str):
+    def set_fraud(self, payment_id: str, info: str, externalid: str):
         MgrctlXml('payment.setfraud', elid=payment_id, info=info, externalid=externalid)
 
     # перевести платеж в статус "оплачен"
-    def set_paid(payment_id: str, info: str, externalid: str):
+    def set_paid(self, payment_id: str, info: str, externalid: str):
         MgrctlXml('payment.setpaid', elid=payment_id, info=info, externalid=externalid)
 
     # перевести платеж в статус "отменен"
-    def set_canceled(payment_id: str, info: str, externalid: str):
+    def set_canceled(self, payment_id: str, info: str, externalid: str):
         MgrctlXml('payment.setcanceled', elid=payment_id, info=info, externalid=externalid)

@@ -34,12 +34,12 @@ class TinkoffKassa:
                      customer_key: str = "", recurrent: str = "",
                      language: str = "", notification_url: str = "",
                      success_url: str = "", fail_url: str = ""
-                     ) -> t.Dict[t.Union[str, int]]:
+                     ) -> t.Dict[str, t.Union[str, int]]:
         "Метод инициирует платежную сессию."
 
         url: str = "https://securepay.tinkoff.ru/v2/Init"
 
-        request_body: t.Dict[t.Union[str, int]] = {
+        request_body: t.Dict[str, t.Union[str, int]] = {
             "TerminalKey": self.terminalkey,
             "Amount": amount,
             "OrderId": order_id,
@@ -48,32 +48,31 @@ class TinkoffKassa:
         }
         request_body.update({"Token": self.generate_token(request_body)})
 
-        response: t.Dict[t.Union[str, int]] = requests\
+        response: t.Dict[str, t.Union[str, int]] = requests\
             .post(url=url, json=request_body)\
             .json()
 
         return response
 
-    def get_state(self, payment_id: str) -> t.Dict[t.Union[str, int]]:
+    def get_state(self, payment_id: str) -> t.Dict[str, t.Union[str, int]]:
         "Метод возвращает статус платежа."
 
         url: str = "https://securepay.tinkoff.ru/v2/GetState"
 
-        request_body: dict[t.Union[str, int]] = {
+        request_body: t.Dict[str, t.Union[str, int]] = {
             "TerminalKey": self.terminalkey,
-            # "PaymentId": pt.get("externalid"),
             "PaymentId": payment_id
         }
-        request_body.update({"Token": self.generate_token(
-            request_body=request_body, password=self.terminalpsw)})
+        # request_body.update({"Token": self.generate_token(request_body)})
+        request_body["Token"] = self.generate_token(request_body)
 
-        response: dict[t.Union[str, int]] = requests\
+        response: t.Dict[str, t.Union[str, int]] = requests\
             .post(url=url, json=request_body)\
             .json()
 
         return response
 
-    def cancel(self, payment_id: str) -> t.Dict[t.Union[str, int]]:
+    def cancel(self, payment_id: str) -> t.Dict[str, t.Union[str, int]]:
         """
         Отменяет платежную сессию. В зависимости от статуса платежа переводит его в следующие состояния:\n
         NEW - CANCELED\n
@@ -87,14 +86,13 @@ class TinkoffKassa:
 
         url: str = "https://securepay.tinkoff.ru/v2/Cancel"
 
-        request_body: dict[t.Union[str, int]] = {
+        request_body: t.Dict[str, t.Union[str, int]] = {
             "TerminalKey": self.terminalkey,
             "PaymentId": payment_id
         }
-        request_body.update({"Token": self.generate_token(
-            request_body=request_body, password=self.terminalpsw)})
+        request_body.update({"Token": self.generate_token(request_body)})
 
-        response: dict[t.Union[str, int]] = requests\
+        response: t.Dict[str, t.Union[str, int]] = requests\
             .post(url=url, json=request_body)\
             .json()
 

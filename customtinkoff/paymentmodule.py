@@ -1,21 +1,13 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 import sys
 import typing as t
 import xml.etree.ElementTree as ET
-from enum import Enum
 
 from billmgr.exception import XmlException
 
 
 class PaymentModule(ABC):
-    # Абстрактные методы CheckPay и PM_Validate необходимо переопределить в своей реализации
-    # см пример реализации в pmtestpayment.py
-
-    # проверить оплаченные платежи
-    # реализация --command checkpay
-    # здесь делаем запрос в БД, получаем список платежей в статусе "оплачивается"
-    # идем в платежку и проверяем прошли ли платежи
-    # если платеж оплачен, выставляем соответствующий статус c помощью функции set_paid
 
     class Feature(Enum):
         """
@@ -99,9 +91,9 @@ class PaymentModule(ABC):
                 xml = self.config()
                 if xml is not None:
                     ET.dump(xml)
-            elif command == self.Feature.PM_VALIDATE:
+            elif command == self.Feature.PM_VALIDATE.value:
                 self.pm_validate(ET.parse(sys.stdin))
-            elif command == self.Feature.CHECK_PAY:
+            elif command == self.Feature.CHECK_PAY.value:
                 self.check_pay()
 
         except XmlException as exception:

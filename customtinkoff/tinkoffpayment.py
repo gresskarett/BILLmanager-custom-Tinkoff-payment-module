@@ -1,20 +1,15 @@
 import typing as t
 
-from billmgr import logger as logging
-# import payment  # TODO: заимпортить всё нормально
-from customtinkoffpayment import MODULE_NAME
-from customtinkoffpayment.payment import Payment
-from customtinkoffpayment.tinkoffkassa import TinkoffKassa
-
-
-logging.init_logging(MODULE_NAME)
-logger = logging.get_logger(MODULE_NAME)
+from customtinkoff import MODULE_NAME, logger
+from customtinkoff.payment import Payment
+from customtinkoff.tinkoffkassa import TinkoffKassa
 
 
 class TinkoffPayment(Payment):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, elid: str, cookies: str = "", http_host: str = "",
+                 request_method: str = "", https: str = "") -> None:
+        super().__init__(elid, cookies, http_host, request_method, https)
 
         self.int_amount = self.payment_params.get("paymethodamount")\
                               .replace(".", "")
@@ -33,32 +28,37 @@ class TinkoffPayment(Payment):
         Метод инициализирует платёж и устанавливает статус платежа.\n
         Возвращает URL для дальнейшего перехода в Тинькофф Кассу.
         """
-        response: t.Dict[t.Union[str, int]] = self.kassa.init_payment(
+
+        logger.info("run TinkoffPayment.make")
+
+        response: t.Dict[str, t.Union[str, int]] = self.kassa.init_payment(
             amount=self.int_amount,
             order_id=self.order_id,
             success_url=self.success_page,
             fail_url=self.fail_page
         )
         response_info: str = "{0} {1}".format(response.get("Message"),
-                                              response.get("Details"))
+                                              response.get("Details")).strip()
 
         if not response.get("Success"):
             self.set_canceled(payment_id=self.elid,
                               info=response_info,
                               externalid=response.get("PaymentId"))
-            raise Exception("Ошибка инициализации платежа")
-        # переводим платеж в статус оплачивается
+            raise Exception("Ошибка инициализации платежа. " + response_info)
+
         self.set_in_pay(payment_id=self.elid,
                         info=response_info,
                         externalid=response.get("PaymentId"))
 
-        return response.get("PaymentURL")
+        payment_url: str = response.get("PaymentURL")
+        return payment_url
 
     # ex Process()
-    def get_redirect_request(self, url: str):
+    def get_redirect_request(self, url: str) -> str:
         """
         Метод возвращает полный HTTP запрос с переадресацией в Тинькофф кассу.
         """
+
         # необходимые данные достаем из self.payment_params, self.paymethod_params, self.user_params
         # здесь для примера выводим параметры метода оплаты (self.paymethod_params)
         # и платежа (self.payment_params) в лог
